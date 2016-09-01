@@ -19,6 +19,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -28,7 +29,17 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -197,7 +208,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
 
     private boolean isPasswordValid(String password) {
         //TODO: Replace this with your own logic
-        return password.length() > 4;
+        return password.length() > 7;
     }
 
     /**
@@ -294,7 +305,9 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
      */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
+
+
+    public class UserLoginTask extends AsyncTask<Void, Void, JSONObject> {
 
         private final String mEmail;
         private final String mPassword;
@@ -304,27 +317,141 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             mPassword = password;
         }
 
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
+        /*private String[] getAnswerFromJson(String serverJsonStr) throws JSONException {
 
-            try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                return false;
+            final String LOG_TAG = "tag";
+            final String LOG_STATUS = "status";
+
+            JSONObject serverJson = new JSONObject(serverJsonStr);
+
+           //   boolean tmp = (boolean) serverJson.get("tag");
+
+           /* if(tmp == true){
+                Toast.makeText(getApplicationContext(),"IM HEREEEE",Toast.LENGTH_LONG);
             }
 
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
+
+        }*/
+
+        @Override
+        protected JSONObject doInBackground(Void... params) {
+
+            if (params.length == 0) {
+
+                return null;
+            }
+            Log.v("connect","CONNECTED");
+            HttpURLConnection urlConnection = null;
+            BufferedReader reader = null;
+
+            String serverJsonStr = null;
+            String format = "json";
+
+            try{
+                final String FORECAST_BASE_URL =
+                        "http://ec2-52-89-114-225.us-west-2.compute.amazonaws.com:8080/useraccount/login/dologin?";
+
+                final String USER_PARAM = "username";
+                final String PASS_PARAM = "password";
+
+                Uri builtUri = Uri.parse(FORECAST_BASE_URL).buildUpon()
+                        .appendQueryParameter(USER_PARAM, mEmail)
+                        .appendQueryParameter(PASS_PARAM, mPassword)
+                        .build();
+
+                URL url = new URL(builtUri.toString());
+                Log.v("URL",builtUri.toString());
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.connect();
+
+
+                InputStream inputStream = urlConnection.getInputStream();
+                StringBuffer buffer = new StringBuffer();
+                if (inputStream == null) {
+                    // Nothing to do.
+                    return null;
+                }
+                reader = new BufferedReader(new InputStreamReader(inputStream));
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
+                    // But it does make debugging a *lot* easier if you print out the completed
+                    // buffer for debugging.
+                    buffer.append(line + "\n");
+                }
+
+                if (buffer.length() == 0) {
+                    // Stream was empty.  No point in parsing.
+                    return null;
+                }
+
+                serverJsonStr = buffer.toString();
+                Log.d("PROBLEM",serverJsonStr);
+
+            }catch (IOException e) {
+                Log.e("LOGE", "Error ", e);
+                // If the code didn't successfully get the weather data, there's no point in attemping
+                // to parse it.
+                return null;
+            }finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (final IOException e) {
+                        Log.e("LOGE", "Error closing stream", e);
+                    }
                 }
             }
 
-            // TODO: register the new account here.
-            return true;
+            final String LOG_TAG = "tag";
+            final String LOG_STATUS = "status";
+
+            JSONObject serverJson = null;
+            try {
+                serverJson = new JSONObject(serverJsonStr);
+                return serverJson;
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(final JSONObject success) {
+            mAuthTask = null;
+
+           // showProgress(false);
+           // Toast.makeText(LoginActivity.this, "", Toast.LENGTH_SHORT).show();
+           /* if (success) {
+                finish();
+            } else {
+                mPasswordView.setError(getString(R.string.error_incorrect_password));
+                mPasswordView.requestFocus();
+            }*/
+        }
+
+        @Override
+        protected void onCancelled() {
+            mAuthTask = null;
+            showProgress(false);
+        }
+
+    }
+
+    /*public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
+
+        private final String mEmail;
+        private final String mPassword;
+
+        UserLoginTask(String email, String password) {
+            mEmail = email;
+            mPassword = password;
         }
 
         @Override
@@ -345,6 +472,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             mAuthTask = null;
             showProgress(false);
         }
-    }
+    }*/
 }
 
